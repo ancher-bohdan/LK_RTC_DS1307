@@ -4,14 +4,14 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
+#include <linux/workqueue.h>
+#include <linux/jiffies.h>
 
-static int ds1307_custom_remove(struct i2c_client *client)
-{
-  return 0;
-}
+static struct delayed_work rtc_work;
+unsigned long delay = 1;
+static struct i2c_client *g_client;
 
-static int ds1307_custom_probe(struct i2c_client *client,
-                                const struct i2c_device_id *id)
+void get_time_func(struct work_struct *work)
 {
   int ret = 0;
   u8 stats_reg = 0;
@@ -19,19 +19,19 @@ static int ds1307_custom_probe(struct i2c_client *client,
 
   struct i2c_msg msg[2] = {
     {
-      .addr = client->addr,
+      .addr = g_client->addr,
       .len = 1,
       .buf = &reg,
     },
     {
-      .addr = client->addr,
+      .addr = g_client->addr,
       .len = 1,
       .flags = I2C_M_RD,
       .buf = &stats_reg,
     }
   };
 
-  ret = i2c_transfer(client->adapter, msg, 2);
+  ret = i2c_transfer(g_client->adapter, msg, 2);
   if(ret < 0)
   {
     pr_err("**************error in i2c transfering\n");
@@ -40,7 +40,7 @@ static int ds1307_custom_probe(struct i2c_client *client,
   pr_info("status regiser: %d\n", stats_reg);
 
   reg = 0;
-  ret = i2c_transfer(client->adapter, msg, 2);
+  ret = i2c_transfer(g_client->adapter, msg, 2);
   if(ret < 0)
   {
     pr_err("**************error in i2c transfering\n");
@@ -49,7 +49,7 @@ static int ds1307_custom_probe(struct i2c_client *client,
   pr_info("sec: %d%d\n", (stats_reg >> 4) & 0x07, stats_reg & 0x0f);
 
   reg = 1;
-  ret = i2c_transfer(client->adapter, msg, 2);
+  ret = i2c_transfer(g_client->adapter, msg, 2);
   if(ret < 0)
   {
     pr_err("**************error in i2c transfering\n");
@@ -58,14 +58,32 @@ static int ds1307_custom_probe(struct i2c_client *client,
   pr_info("min: %d%d\n", stats_reg >> 4, stats_reg & 0x0f);
 
   reg = 2;
-  ret = i2c_transfer(client->adapter, msg, 2);
+  ret = i2c_transfer(g_client->adapter, msg, 2);
   if(ret < 0)
   {
     pr_err("**************error in i2c transfering\n");
   }
 
   pr_info("hour: %d\n", stats_reg & 0x0f);
+  schedule_delayed_work(&rtc_work, delay * HZ);
+}
 
+static int ds1307_custom_remove(struct i2c_client *client)
+{
+  cancel_delayed_work_sync(&rtc_work);
+  flush_scheduled_work();
+
+  pr_info("Bye\n");
+  return 0;
+}
+
+static int ds1307_custom_probe(struct i2c_client *client,
+                                const struct i2c_device_id *id)
+{
+
+  INIT_DELAYED_WORK(&rtc_work, get_time_func);
+  g_client = client;
+  schedule_delayed_work(&rtc_work, delay * HZ);
   return 0;
 }
 
