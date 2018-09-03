@@ -12,7 +12,6 @@
 struct ds1307_cus {
   const char *name;
   struct device *dev;
-  struct i2c_client *client;
   struct delayed_work work;
 };
 
@@ -21,25 +20,26 @@ unsigned long delay = 1;
 void get_time_func(struct work_struct *work)
 {
   struct ds1307_cus *ds1307 = container_of(work, struct ds1307_cus, work.work);
+  struct i2c_client *client = container_of(ds1307->dev, struct i2c_client, dev);
   int ret = 0;
   u8 stats_reg = 0;
   u8 reg = 0x07;
 
   struct i2c_msg msg[2] = {
     {
-      .addr = ds1307->client->addr,
+      .addr = client->addr,
       .len = 1,
       .buf = &reg,
     },
     {
-      .addr = ds1307->client->addr,
+      .addr = client->addr,
       .len = 1,
       .flags = I2C_M_RD,
       .buf = &stats_reg,
     }
   };
 
-  ret = i2c_transfer(ds1307->client->adapter, msg, 2);
+  ret = i2c_transfer(client->adapter, msg, 2);
   if(ret < 0)
   {
     pr_err("**************error in i2c transfering\n");
@@ -48,7 +48,7 @@ void get_time_func(struct work_struct *work)
   pr_info("status regiser: %d\n", stats_reg);
 
   reg = 0;
-  ret = i2c_transfer(ds1307->client->adapter, msg, 2);
+  ret = i2c_transfer(client->adapter, msg, 2);
   if(ret < 0)
   {
     pr_err("**************error in i2c transfering\n");
@@ -57,7 +57,7 @@ void get_time_func(struct work_struct *work)
   pr_info("sec: %d%d\n", (stats_reg >> 4) & 0x07, stats_reg & 0x0f);
 
   reg = 1;
-  ret = i2c_transfer(ds1307->client->adapter, msg, 2);
+  ret = i2c_transfer(client->adapter, msg, 2);
   if(ret < 0)
   {
     pr_err("**************error in i2c transfering\n");
@@ -66,7 +66,7 @@ void get_time_func(struct work_struct *work)
   pr_info("min: %d%d\n", stats_reg >> 4, stats_reg & 0x0f);
 
   reg = 2;
-  ret = i2c_transfer(ds1307->client->adapter, msg, 2);
+  ret = i2c_transfer(client->adapter, msg, 2);
   if(ret < 0)
   {
     pr_err("**************error in i2c transfering\n");
@@ -98,7 +98,6 @@ static int ds1307_custom_probe(struct i2c_client *client,
   dev_set_drvdata(&client->dev, ds1307);
   ds1307->dev = &client->dev;
   ds1307->name = client->name;
-  ds1307->client = client;
 
   INIT_DELAYED_WORK(&ds1307->work, get_time_func);
 
