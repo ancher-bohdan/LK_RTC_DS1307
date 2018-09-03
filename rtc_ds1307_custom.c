@@ -23,7 +23,7 @@ void get_time_func(struct work_struct *work)
   struct i2c_client *client = container_of(ds1307->dev, struct i2c_client, dev);
   int ret = 0;
   u8 stats_reg = 0;
-  u8 reg = 0x07;
+  u8 reg = 0x00;
 
   struct i2c_msg msg[2] = {
     {
@@ -41,38 +41,24 @@ void get_time_func(struct work_struct *work)
 
   ret = i2c_transfer(client->adapter, msg, 2);
   if(ret < 0)
-  {
     pr_err("**************error in i2c transfering\n");
-  }
-
-  pr_info("status regiser: %d\n", stats_reg);
-
-  reg = 0;
-  ret = i2c_transfer(client->adapter, msg, 2);
-  if(ret < 0)
-  {
-    pr_err("**************error in i2c transfering\n");
-  }
 
   pr_info("sec: %d%d\n", (stats_reg >> 4) & 0x07, stats_reg & 0x0f);
 
   reg = 1;
   ret = i2c_transfer(client->adapter, msg, 2);
   if(ret < 0)
-  {
     pr_err("**************error in i2c transfering\n");
-  }
 
   pr_info("min: %d%d\n", stats_reg >> 4, stats_reg & 0x0f);
 
   reg = 2;
   ret = i2c_transfer(client->adapter, msg, 2);
   if(ret < 0)
-  {
     pr_err("**************error in i2c transfering\n");
-  }
 
   pr_info("hour: %d\n", stats_reg & 0x0f);
+
   schedule_delayed_work(&ds1307->work, delay * HZ);
 }
 
